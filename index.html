@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random CVC Word Flashcards</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f8ff;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin: 0.5em 0;
+        }
+
+        p {
+            font-size: 1.5rem;
+            margin: 0.2em;
+            color: #555;
+        }
+
+        button {
+            padding: 0.5em 1em;
+            font-size: 1.2rem;
+            margin-top: 1em;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1 id="word">Word</h1>
+    <p id="category">Category</p>
+    <button onclick="showRandomWord()">Next Word</button>
+
+    <script>
+        // JSON data with CVC words
+        const CVC_WORDS = {
+            SHORT_A: [
+                "cab", "dab", "gab", "jab", "lab", "tab", "bad", "dad", "had", "lad", "mad", "pad", "sad", "tad", "bag", "gag", "hag", "lag", "rag", "sap"
+            ],
+            SHORT_E: [
+                "bed", "fed", "red", "wed", "beg", "keg", "leg", "peg", "den", "hen", "pen", "ten", "bet", "get", "jet", "let", "net", "pet"
+            ],
+            SHORT_I: [
+                "bid", "lid", "rid", "dig", "fig", "rig", "wig", "dim", "rim", "bin", "fin", "sin", "tin", "kid", "dip", "hip", "lip", "tip", "zip"
+            ],
+            SHORT_O: [
+                "cob", "gob", "job", "rob", "sob", "bog", "dog", "fog", "jog", "log", "bop", "mop", "pop", "top", "cot", "dot", "got", "hot", "jot"
+            ],
+            SHORT_U: [
+                "bud", "cud", "mud", "bug", "dug", "hug", "jug", "lug", "rug", "tug", "bum", "gum", "hum", "sum", "cup", "pup", "bun", "fun", "gun", "run"
+            ]
+        };
+
+        const categories = Object.keys(CVC_WORDS);
+        let currentCategory = null;
+        let wordCount = 0;
+
+        function getRandomElement(array) {
+            return array[Math.floor(Math.random() * array.length)];
+        }
+
+        function pickNewCategory() {
+            currentCategory = getRandomElement(categories);
+        }
+
+        function showRandomWord() {
+            if (wordCount % 5 === 0 || !currentCategory) {
+                pickNewCategory();
+            }
+            wordCount++;
+
+            const wordList = CVC_WORDS[currentCategory];
+            const randomWord = getRandomElement(wordList);
+
+            document.getElementById("word").textContent = randomWord;
+            document.getElementById("category").textContent = `Category: ${currentCategory.replace("_", " ")}`;
+        }
+
+        // Show the first word on page load
+        showRandomWord();
+    </script>
+</body>
+</html>
