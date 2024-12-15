@@ -465,10 +465,8 @@
             console.log("Speaking word:", word);
 
             const speak = async () => {
-                // Ensure voices are loaded
-                if (voices.length === 0) {
-                    await loadVoices();
-                }
+                // Always try to load voices first
+                await loadVoices();
 
                 const utterance = new SpeechSynthesisUtterance(word);
                 
@@ -509,6 +507,7 @@
                 }
             };
 
+            // Call speak() immediately
             speak();
         }
 
