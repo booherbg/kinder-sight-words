@@ -345,9 +345,6 @@
         }
 
         function handleCorrect() {
-            if (wordCount % 5 === 0 || !currentCategory) {
-                pickNewCategory();
-            }
             wordCount++;
 
             // Update progress
@@ -359,6 +356,7 @@
             if (wordCount % 5 === 0) {
                 showCelebration();
                 updateStars();
+                pickNewCategory(); // Pick new category after completing a set of 5
             }
 
             // Get new word
