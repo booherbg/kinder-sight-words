@@ -4,42 +4,124 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Random CVC Word Flashcards</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f8ff;
-            text-align: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         }
 
-        h1 {
-            font-size: 3rem;
-            margin: 0.5em 0;
+        .card {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+            width: 100%;
         }
 
-        p {
+        @media (min-width: 768px) {
+            .card {
+                width: 80%;
+            }
+        }
+
+        @media (min-width: 992px) {
+            .card {
+                width: 600px;
+            }
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .word-display {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .next-button {
+            transition: all 0.3s ease;
+        }
+
+        .next-button:hover {
+            transform: scale(1.05);
+        }
+
+        .milestone-stars {
             font-size: 1.5rem;
-            margin: 0.2em;
-            color: #555;
+            margin-top: 1rem;
         }
 
-        button {
-            padding: 0.5em 1em;
-            font-size: 1.2rem;
-            margin-top: 1em;
-            cursor: pointer;
+        .star-earned {
+            color: gold;
+            animation: starPop 0.5s ease-out;
+        }
+
+        .star-empty {
+            color: #ddd;
+        }
+
+        @keyframes starPop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.5); }
+            100% { transform: scale(1); }
+        }
+
+        .celebration {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 5rem;
+            animation: celebrate 1.5s ease-out;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        @keyframes celebrate {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(2); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
         }
     </style>
 </head>
 <body>
-    <h1 id="word">Word</h1>
-    <p id="category">Category</p>
-    <button onclick="showRandomWord()">Next Word</button>
+    <div class="container-fluid d-flex flex-column justify-content-center align-items-center min-vh-100 px-3">
+        <div class="card text-center p-4 p-sm-5 mb-4">
+            <div class="card-body">
+                <h1 id="word" class="word-display mb-3" style="cursor: pointer" onclick="speakWord()">Word</h1>
+                <p class="text-muted small mb-3">(Click word to hear it)</p>
+                <p id="category" class="h5 text-muted mb-3">Category</p>
+                <div id="progress" class="alert alert-info mb-4" role="alert">
+                    <i class="bi bi-star-fill me-2"></i>
+                    <span>0 words completed!</span>
+                </div>
+                <div class="milestone-stars mb-4">
+                    <i class="bi bi-star star-empty" data-star="1"></i>
+                    <i class="bi bi-star star-empty" data-star="2"></i>
+                    <i class="bi bi-star star-empty" data-star="3"></i>
+                    <i class="bi bi-star star-empty" data-star="4"></i>
+                    <i class="bi bi-star star-empty" data-star="5"></i>
+                </div>
+                <div class="d-grid gap-2">
+                    <button onclick="handleCorrect()" class="btn btn-success btn-lg">
+                        <i class="bi bi-check-circle me-2"></i>
+                        Correct!
+                    </button>
+                    <button onclick="handleNewWord()" class="btn btn-secondary btn-lg">
+                        <i class="bi bi-shuffle me-2"></i>
+                        New Word
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add audio element (hidden) -->
+    <audio id="celebrationSound" preload="auto">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3" type="audio/mpeg">
+    </audio>
 
     <script>
         // JSON data with CVC words
@@ -66,6 +148,7 @@
         let wordCount = 0;
 
         function getRandomElement(array) {
+            if (!array || array.length === 0) return ""; // Add safety check
             return array[Math.floor(Math.random() * array.length)];
         }
 
@@ -73,7 +156,121 @@
             currentCategory = getRandomElement(categories);
         }
 
-        function showRandomWord() {
+        const celebrations = ['🌟', '🎉', '🎈', '🎊', '⭐', '🏆'];
+        
+        // Add sound control
+        const celebrationSound = document.getElementById('celebrationSound');
+        
+        function playMilestoneSound() {
+            celebrationSound.volume = 0.3; // Set volume to 30%
+            celebrationSound.currentTime = 0; // Reset sound to start
+            
+            // Create and return a promise that resolves when the sound plays
+            return celebrationSound.play().catch(error => {
+                console.log("Sound playback failed:", error);
+                // Silently fail if sound can't play (some browsers block autoplay)
+            });
+        }
+
+        function showCelebration() {
+            const celebration = document.createElement('div');
+            celebration.className = 'celebration';
+            celebration.textContent = celebrations[Math.floor(Math.random() * celebrations.length)];
+            document.body.appendChild(celebration);
+            
+            // Play the sound
+            playMilestoneSound();
+            
+            // Remove the celebration element after animation
+            setTimeout(() => celebration.remove(), 1500);
+        }
+
+        function updateStars() {
+            const starCount = Math.floor(wordCount / 5);
+            const stars = document.querySelectorAll('.milestone-stars i');
+            
+            stars.forEach((star, index) => {
+                if (index < starCount) {
+                    star.classList.remove('bi-star');
+                    star.classList.remove('star-empty');
+                    star.classList.add('bi-star-fill');
+                    star.classList.add('star-earned');
+                }
+            });
+        }
+
+        // Initialize speech synthesis and voices
+        const speechSynthesis = window.speechSynthesis;
+        let voices = [];
+
+        // Load voices - needs to be done this way for Chrome
+        function loadVoices() {
+            voices = speechSynthesis.getVoices();
+            console.log("Voices loaded:", voices.length);  // Debug log
+        }
+
+        // Handle voice loading for Chrome
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = loadVoices;
+        }
+        loadVoices();  // Initial load for other browsers
+
+        function speakWord() {
+            // Cancel any ongoing speech
+            speechSynthesis.cancel();
+
+            const word = document.getElementById("word").textContent;
+            console.log("Speaking word:", word);  // Debug log
+
+            const utterance = new SpeechSynthesisUtterance(word);
+            
+            // Get voices again in case they weren't loaded initially
+            voices = speechSynthesis.getVoices();
+            
+            // Try to find a good English voice
+            let voice = voices.find(v => 
+                v.lang.includes('en') && 
+                (v.name.includes('Female') || v.name.includes('Google'))
+            ) || voices[0];  // Fallback to first available voice
+
+            if (voice) {
+                utterance.voice = voice;
+                console.log("Using voice:", voice.name);  // Debug log
+            }
+
+            // Configure speech parameters
+            utterance.rate = 0.8;     // Slightly slower
+            utterance.pitch = 1;      // Normal pitch
+            utterance.volume = 1;     // Full volume
+            utterance.lang = 'en-US'; // Ensure English pronunciation
+
+            // Add event handlers
+            utterance.onstart = () => console.log("Started speaking");
+            utterance.onend = () => console.log("Finished speaking");
+            utterance.onerror = (e) => console.error("Speech error:", e);
+
+            // Speak the word
+            try {
+                speechSynthesis.speak(utterance);
+            } catch (error) {
+                console.error("Speech synthesis error:", error);
+            }
+        }
+
+        // Update the handleNewWord and handleCorrect functions to include word element
+        function handleNewWord() {
+            // Ensure we have a category
+            if (!currentCategory) {
+                pickNewCategory();
+            }
+            
+            const wordList = CVC_WORDS[currentCategory];
+            const randomWord = getRandomElement(wordList);
+            const wordElement = document.getElementById("word");
+            wordElement.textContent = randomWord;
+        }
+
+        function handleCorrect() {
             if (wordCount % 5 === 0 || !currentCategory) {
                 pickNewCategory();
             }
@@ -81,13 +278,26 @@
 
             const wordList = CVC_WORDS[currentCategory];
             const randomWord = getRandomElement(wordList);
+            const wordElement = document.getElementById("word");
+            wordElement.textContent = randomWord;
+            
+            document.getElementById("category").textContent = 
+                `Category: ${currentCategory.replace("_", " ")}`;
+            document.getElementById("progress").innerHTML = `
+                <i class="bi bi-star-fill me-2"></i>
+                <span>${wordCount} words completed!</span>
+            `;
 
-            document.getElementById("word").textContent = randomWord;
-            document.getElementById("category").textContent = `Category: ${currentCategory.replace("_", " ")}`;
+            // Check for milestones
+            if (wordCount % 5 === 0) {
+                showCelebration();
+                updateStars();
+            }
         }
 
-        // Show the first word on page load
-        showRandomWord();
+        // Initialize with a category before showing first word
+        pickNewCategory();
+        handleNewWord();
     </script>
 </body>
 </html>
