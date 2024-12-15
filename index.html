@@ -84,6 +84,32 @@
             50% { transform: translate(-50%, -50%) scale(2); opacity: 1; }
             100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
         }
+
+        .success-animation {
+            animation: successPop 0.5s ease-out;
+            color: #28a745 !important;
+        }
+
+        @keyframes successPop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .success-message {
+            position: absolute;
+            color: #28a745;
+            font-size: 1.5rem;
+            font-weight: bold;
+            opacity: 0;
+            animation: fadeUpAndOut 1s ease-out forwards;
+        }
+
+        @keyframes fadeUpAndOut {
+            0% { transform: translateY(0); opacity: 0; }
+            30% { transform: translateY(-20px); opacity: 1; }
+            100% { transform: translateY(-40px); opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -127,6 +153,10 @@
     <!-- Add audio element (hidden) -->
     <audio id="celebrationSound" preload="auto">
         <source src="https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3" type="audio/mpeg">
+    </audio>
+
+    <audio id="successSound" preload="auto">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3" type="audio/mpeg">
     </audio>
 
     <div class="modal fade" id="aboutModal" tabindex="-1" aria-labelledby="aboutModalLabel" aria-hidden="true">
@@ -192,22 +222,36 @@
     <script>
         // JSON data with CVC words
         const CVC_WORDS = {
-            SHORT_A: [
-                "cab", "dab", "gab", "jab", "lab", "tab", "bad", "dad", "had", "lad", "mad", "pad", "sad", "tad", "bag", "gag", "hag", "lag", "rag", "sap"
+            "SHORT_A": [
+                "cab", "dab", "gab", "jab", "lab", "nab", "tab", "bad", "dad", "fad", "had", "lad",
+                "mad", "pad", "sad", "tad", "bag", "gag", "hag", "lag", "mag", "nag", "rag", "sag",
+                "tag", "wag", "bam", "dam", "ham", "jam", "ram", "yam", "ban", "can", "fan", "man",
+                "pan", "ran", "tan", "van", "cap", "gap", "lap", "map", "nap", "rap", "sap", "tap",
+                "zap", "bat", "cat", "fat", "hat", "mat", "pat", "rat", "sat", "vat", "max", "tax",
+                "wax", "pal", "gal", "gas"
             ],
-            SHORT_E: [
-                "bed", "fed", "red", "wed", "beg", "keg", "leg", "peg", "den", "hen", "pen", "ten", "bet", "get", "jet", "let", "net", "pet"
+            "SHORT_E": [
+                "bed", "fed", "red", "wed", "zed", "beg", "keg", "leg", "peg", "den", "hen", "men",
+                "pen", "ten", "bet", "get", "jet", "let", "met", "net", "pet", "set", "vet", "yet",
+                "gem", "hem", "yes", "web"
             ],
-            SHORT_I: [
-                "bid", "lid", "rid", "dig", "fig", "rig", "wig", "dim", "rim", "bin", "fin", "sin", "tin", "kid", "dip", "hip", "lip", "tip", "zip"
+            "SHORT_I": [
+                "bid", "lid", "rid", "dig", "fig", "rig", "wig", "dim", "rim", "bin", "fin", "sin",
+                "tin", "kid", "dip", "hip", "lip", "tip", "zip", "bit", "fit", "hit", "kit", "sit",
+                "wit", "fix", "mix", "six"
             ],
-            SHORT_O: [
-                "cob", "gob", "job", "rob", "sob", "bog", "dog", "fog", "jog", "log", "bop", "mop", "pop", "top", "cot", "dot", "got", "hot", "jot"
+            "SHORT_O": [
+                "cob", "gob", "job", "rob", "sob", "bog", "cog", "dog", "fog", "hog", "jog", "log",
+                "bop", "cop", "mop", "pop", "top", "cot", "dot", "got", "hot", "jot", "lot", "not",
+                "pot", "rot", "tot", "box", "fox", "pox"
             ],
-            SHORT_U: [
-                "bud", "cud", "mud", "bug", "dug", "hug", "jug", "lug", "rug", "tug", "bum", "gum", "hum", "sum", "cup", "pup", "bun", "fun", "gun", "run"
+            "SHORT_U": [
+                "bud", "cud", "mud", "bug", "dug", "hug", "jug", "lug", "rug", "tug", "bum", "gum",
+                "hum", "sum", "cup", "pup", "bun", "fun", "gun", "nun", "pun", "run", "sun", "cut",
+                "gut", "hut", "jut", "nut", "rut", "bus"
             ]
-        };
+            }
+
 
         const categories = Object.keys(CVC_WORDS);
         let currentCategory = null;
@@ -271,62 +315,87 @@
 
         // Load voices - needs to be done this way for Chrome
         function loadVoices() {
-            voices = speechSynthesis.getVoices();
-            console.log("Voices loaded:", voices.length);  // Debug log
+            return new Promise((resolve) => {
+                voices = speechSynthesis.getVoices();
+                if (voices.length > 0) {
+                    console.log("Voices loaded:", voices.length);
+                    resolve(voices);
+                } else {
+                    speechSynthesis.onvoiceschanged = () => {
+                        voices = speechSynthesis.getVoices();
+                        console.log("Voices loaded (delayed):", voices.length);
+                        resolve(voices);
+                    };
+                }
+            });
         }
 
-        // Handle voice loading for Chrome
-        if (speechSynthesis.onvoiceschanged !== undefined) {
-            speechSynthesis.onvoiceschanged = loadVoices;
-        }
-        loadVoices();  // Initial load for other browsers
+        // Load voices immediately
+        loadVoices();
 
-        function speakWord() {
+        function speakWord(retryCount = 0) {
+            const maxRetries = 3;
+            const word = document.getElementById("word").textContent;
+            if (word === "???") return;
+
             // Cancel any ongoing speech
             speechSynthesis.cancel();
 
-            const word = document.getElementById("word").textContent;
-            if (word === "???") return; // Don't speak if word isn't revealed yet
-            
-            console.log("Speaking word:", word);  // Debug log
+            console.log("Speaking word:", word);
 
-            const utterance = new SpeechSynthesisUtterance(word);
-            
-            // Get voices again in case they weren't loaded initially
-            voices = speechSynthesis.getVoices();
-            
-            // Try to find a good English voice
-            let voice = voices.find(v => 
-                v.lang.includes('en') && 
-                (v.name.includes('Female') || v.name.includes('Google'))
-            ) || voices[0];  // Fallback to first available voice
+            const speak = async () => {
+                // Ensure voices are loaded
+                if (voices.length === 0) {
+                    await loadVoices();
+                }
 
-            if (voice) {
-                utterance.voice = voice;
-                console.log("Using voice:", voice.name);  // Debug log
-            }
+                const utterance = new SpeechSynthesisUtterance(word);
+                
+                // Try to find a good English voice
+                let voice = voices.find(v => 
+                    v.lang.includes('en') && 
+                    (v.name.includes('Female') || v.name.includes('Google'))
+                ) || voices[0];
 
-            // Configure speech parameters
-            utterance.rate = 0.8;     // Slightly slower
-            utterance.pitch = 1;      // Normal pitch
-            utterance.volume = 1;     // Full volume
-            utterance.lang = 'en-US'; // Ensure English pronunciation
+                if (voice) {
+                    utterance.voice = voice;
+                    console.log("Using voice:", voice.name);
+                }
 
-            // Add event handlers
-            utterance.onstart = () => console.log("Started speaking");
-            utterance.onend = () => console.log("Finished speaking");
-            utterance.onerror = (e) => console.error("Speech error:", e);
+                utterance.rate = 0.8;
+                utterance.pitch = 1;
+                utterance.volume = 1;
+                utterance.lang = 'en-US';
 
-            // Speak the word
-            try {
-                speechSynthesis.speak(utterance);
-            } catch (error) {
-                console.error("Speech synthesis error:", error);
-            }
+                utterance.onstart = () => console.log("Started speaking");
+                utterance.onend = () => console.log("Finished speaking");
+                utterance.onerror = (e) => {
+                    console.error("Speech error:", e);
+                    if (retryCount < maxRetries) {
+                        console.log(`Retrying... (${retryCount + 1}/${maxRetries})`);
+                        setTimeout(() => speakWord(retryCount + 1), 100);
+                    }
+                };
+
+                try {
+                    speechSynthesis.speak(utterance);
+                } catch (error) {
+                    console.error("Speech synthesis error:", error);
+                    if (retryCount < maxRetries) {
+                        console.log(`Retrying... (${retryCount + 1}/${maxRetries})`);
+                        setTimeout(() => speakWord(retryCount + 1), 100);
+                    }
+                }
+            };
+
+            speak();
         }
 
         // Update the handleNewWord and handleCorrect functions to include word element
         function handleNewWord() {
+            // Disable buttons
+            toggleButtons(false);
+
             // Ensure we have a category
             if (!currentCategory) {
                 pickNewCategory();
@@ -342,25 +411,93 @@
             
             // Show the word immediately
             wordElement.textContent = randomWord;
+
+            // Re-enable buttons after a short delay
+            setTimeout(() => toggleButtons(true), 50);
+        }
+
+        const successMessages = [
+            "Great job! 👍", 
+            "Perfect! ⭐", 
+            "You got it! 🎯",
+            "Excellent! 🌟",
+            "Amazing! 🎉",
+            "Well done! 💫",
+            "Fantastic! 🌈"
+        ];
+
+        function showSuccessMessage() {
+            const word = document.getElementById("word");
+            const rect = word.getBoundingClientRect();
+            
+            const message = document.createElement('div');
+            message.className = 'success-message';
+            message.textContent = successMessages[Math.floor(Math.random() * successMessages.length)];
+            
+            // Position the message above the word
+            message.style.left = `${rect.left + (rect.width/2)}px`;
+            message.style.top = `${rect.top}px`;
+            message.style.transform = 'translate(-50%, 0)';
+            
+            document.body.appendChild(message);
+            
+            // Remove the message after animation
+            setTimeout(() => message.remove(), 1000);
+        }
+
+        function playSuccessSound() {
+            const successSound = document.getElementById('successSound');
+            successSound.volume = 0.2;
+            successSound.currentTime = 0;
+            successSound.play().catch(err => console.log('Sound play failed:', err));
         }
 
         function handleCorrect() {
-            wordCount++;
+            // Disable buttons
+            toggleButtons(false);
 
-            // Update progress
-            document.getElementById("progress").innerHTML = `
-                <i class="bi bi-star-fill me-2"></i>
-                <span>${wordCount} words completed!</span>
-            `;
+            // Add success animation class to word
+            const wordElement = document.getElementById("word");
+            wordElement.classList.add('success-animation');
+            
+            // Show success message
+            showSuccessMessage();
+            
+            // Play success sound
+            playSuccessSound();
+            
+            // Speak current word
+            speakWord();
+            
+            // Remove animation class after it completes
+            setTimeout(() => wordElement.classList.remove('success-animation'), 500);
+            
+            // Wait a short moment before moving to next word
+            setTimeout(() => {
+                wordCount++;
+                
+                // Update progress
+                document.getElementById("progress").innerHTML = `
+                    <i class="bi bi-star-fill me-2"></i>
+                    <span>${wordCount} words completed!</span>
+                `;
 
-            if (wordCount % 5 === 0) {
-                showCelebration();
-                updateStars();
-                pickNewCategory(); // Pick new category after completing a set of 5
-            }
+                if (wordCount % 5 === 0) {
+                    showCelebration();
+                    updateStars();
+                    pickNewCategory(); // Pick new category after completing a set of 5
+                }
 
-            // Get new word
-            handleNewWord();
+                // Get new word
+                handleNewWord();
+            }, 1000); // Wait 1 second before showing next word
+        }
+
+        function toggleButtons(enable) {
+            const buttons = document.querySelectorAll('.btn');
+            buttons.forEach(button => {
+                button.disabled = !enable;
+            });
         }
 
         // Make sure category is shown on initial load
