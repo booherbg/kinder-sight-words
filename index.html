@@ -500,11 +500,22 @@
             });
         }
 
-        // Make sure category is shown on initial load
-        pickNewCategory();
-        document.getElementById("category").textContent = 
-            `Category: ${currentCategory.replace(/_/g, " ")}`;
-        handleNewWord();
+        let isInitialized = false;
+
+        function initialize() {
+            if (isInitialized) return;
+            isInitialized = true;
+            
+            if (!currentCategory) {
+                pickNewCategory();
+            }
+            document.getElementById("category").textContent = 
+                `Category: ${currentCategory.replace(/_/g, " ")}`;
+            handleNewWord();
+        }
+
+        // Call initialize function once the page is fully loaded
+        document.addEventListener('DOMContentLoaded', initialize, { once: true });
     </script>
 </body>
 </html>
